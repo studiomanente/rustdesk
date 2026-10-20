@@ -460,6 +460,13 @@ jobs:
           git checkout -- res/msi
           rm -r -fo ./rustdesk-msi-template
 
+      - name: Upload NOT-ASSIST Windows installers (unsigned)
+        if: env.UPLOAD_ARTIFACT == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: notassist-windows-${{ matrix.job.arch }}
+          path: ./SignOutput/rustdesk-*
+
       - name: Upload unsigned msi template
         if: env.UPLOAD_ARTIFACT == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -491,7 +498,7 @@ jobs:
 
       - name: Publish Release
         uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v1
-        if: env.UPLOAD_ARTIFACT == 'true' && env.PUBLISH_UPDATE_METADATA != 'true'
+        if: false  # NOT-ASSIST: pubblicazione gestita dal job finale
         with:
           prerelease: true
           tag_name: ${{ env.TAG_NAME }}
@@ -762,7 +769,7 @@ jobs:
           if-no-files-found: error
 
       - name: Publish DMG package
-        if: env.UPLOAD_ARTIFACT == 'true' && env.PUBLISH_UPDATE_METADATA != 'true'
+        if: false  # NOT-ASSIST: pubblicazione gestita dal job finale
         uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v1
         with:
           prerelease: true
@@ -770,3 +777,31 @@ jobs:
           files: |
             rustdesk*-${{ matrix.job.arch }}.dmg
 
+  publish-not-assist:
+    name: Publish NOT-ASSIST release
+    needs: [build-for-windows-flutter, build-for-macOS]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: dist
+      - name: Collect NOT-ASSIST installers
+        run: |
+          mkdir -p release
+          find dist -type f \( -name 'rustdesk-1.5.1-*.exe' -o -name 'rustdesk-1.5.1-*.msi' -o -name 'rustdesk-1.5.1-*.dmg' \) -exec cp -v {} release/ \;
+          echo "---- contenuto release ----"; ls -la release
+      - name: Publish NOT-ASSIST release
+        uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v1
+        with:
+          prerelease: false
+          tag_name: not-assist
+          name: NOT-ASSIST (Windows + macOS)
+          body: |
+            Installer NOT-ASSIST generati automaticamente dai sorgenti.
+            Non firmati: al primo avvio accettare l'avviso di sicurezza
+            (Windows: "Ulteriori informazioni" -> "Esegui comunque"; macOS: clic destro -> "Apri").
+          files: release/*
